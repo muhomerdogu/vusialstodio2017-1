@@ -1,0 +1,108 @@
+//#include "stdio.h"
+//
+//int main()
+//{
+//	printf_s("OMER DOGU");
+//	system("pause");
+//	return 0;
+//}
+//
+ 
+
+#include <stdio.h>
+#include <stdlib.h>
+#include "mpi.h"
+
+#define MASTER 0
+#define X 50
+
+void print1Dmatrix(int *arr, int length, char *label)
+{
+	printf("%s (%d): [ ", label, length);
+	for (int i = 0; i < length; i++)
+		printf("%2d ", arr[i]);
+	printf("]\n");
+}
+
+double calcAvg(int *arr, int length)
+{
+	double avg = 0;
+	for (int i = 0; i < length; i++)
+		avg += arr[i];
+	return avg / length;
+}
+
+main(int argc, char **argv)
+{
+	int	rank, size, tag = 0, *data;
+
+	MPI_Status status;
+	MPI_Init(&argc, &argv);
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+	printf("--------------------%d/%d--------------------\n", rank, size);
+
+	int recvlngth = X * size - rank * X;
+	data = (int*)malloc(recvlngth * sizeof(int));
+	if (MASTER != rank) //SLAVE
+	{
+		int from = rank - 1;
+		MPI_Recv(data, recvlngth, MPI_INT, from, tag, MPI_COMM_WORLD, &status);
+		printf("Received %d numbers from #%d\n", recvlngth, from);
+		print1Dmatrix(data, recvlngth, "data local");
+
+		int to = MASTER;
+		double localavg = calcAvg(data, recvlngth);
+		printf("Send localavg(%.1lf) to #%d\n", localavg, to);
+		MPI_Send(&localavg, 1, MPI_DOUBLE, to, tag, MPI_COMM_WORLD);
+	}
+	else //MASTER
+	{
+		printf("X = %d, p = %d\n", X, size);
+		for (int i = 0; i < recvlngth; i++)
+			data[i] = i;
+		print1Dmatrix(data, recvlngth, "data whole");
+	}
+
+	if (size - 1 != rank)
+	{
+		int to = rank + 1;
+		printf("Send %d numbers to #%d\n", recvlngth - X, to);
+		MPI_Send(&data[X], recvlngth - X, MPI_INT, to, tag, MPI_COMM_WORLD);
+	}
+
+	if (MASTER == rank) //SLAVE
+	{
+		for (int from = 1; from < size; from++)
+		{
+			double comingavg;
+			MPI_Recv(&comingavg, 1, MPI_DOUBLE, from, tag, MPI_COMM_WORLD, &status);
+			printf("Received localavg(%.1lf) from #%d\n", comingavg, from);
+		}
+	}
+
+	printf("-------------------------------------------\n");
+	MPI_Finalize();
+	system("pause");
+}
+// 
+//#include <stdio.h>
+//#include <stdlib.h>
+//#include "mpi.h"
+//
+//main(int argc, char **argv)
+//{
+//	int	rank;
+//	int	size;
+//
+//	MPI_Status status;
+//	MPI_Init(&argc, &argv);
+//	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+//	MPI_Comm_size(MPI_COMM_WORLD, &size);
+//
+//	printf("%d/%d\n", rank, size);
+//
+//	MPI_Finalize();
+//	system("pause");
+//}
